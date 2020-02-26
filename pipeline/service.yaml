@@ -1,0 +1,29 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Template describing the service infrastructure
+
+Parameters:
+  CodeCommitRepoName:
+    Type: String
+
+Resources:
+  ArtifactBucketName:
+    Type: AWS::S3::Bucket
+
+  IamRoles:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: roles.yaml
+      Parameters: 
+        ArtifactBucketName: !Ref ArtifactBucketName
+        ArtifactBucketArn: !GetAtt ArtifactBucketName.Arn
+
+  CodePipeline:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: codepipeline.yaml
+      Parameters:
+        ArtifactBucketName: !Ref ArtifactBucketName
+        CodePipelineServiceRoleArn: !GetAtt IamRoles.Outputs.CodePipelineServiceRoleArn
+        CodeBuildServiceRoleArn: !GetAtt IamRoles.Outputs.CodeBuildServiceRoleArn
+        CodeCommitRepositoryName: !Ref CodeCommitRepoName
+        CodeCommitBranchName: master

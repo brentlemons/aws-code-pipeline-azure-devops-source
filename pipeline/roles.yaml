@@ -1,0 +1,147 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Template for the CodePipeline resources
+
+Parameters:
+
+  ArtifactBucketName:
+    Type: String
+    Description: Where this pipeline should store artifacts.
+  ArtifactBucketArn:
+    Type: String
+    Description: Where this pipeline should store artifacts.
+
+Resources:
+
+  CodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service: codebuild.amazonaws.com
+      Path: /
+      Policies:
+        - PolicyName: CodeBuildAccess
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Action:
+                - 'logs:CreateLogGroup'
+                - 'logs:CreateLogStream'
+                - 'logs:PutLogEvents'
+                Effect: Allow
+                Resource: '*'
+              - Action:
+                - s3:PutObject
+                - s3:GetObject
+                - s3:GetObjectVersion
+                Effect: Allow
+                Resource: !Ref ArtifactBucketArn
+
+  CodePipelineServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - codepipeline.amazonaws.com
+            - cloudformation.amazonaws.com
+          Sid: 1
+      Policies:
+      - PolicyName: WorkerCodePipelineRolePolicy
+        PolicyDocument:
+          Statement:
+            - Action:
+                - iam:PassRole
+              Resource: '*'
+              Effect: Allow
+#              Condition:
+            - Action:
+                - s3:GetObject
+                - s3:GetObjectVersion
+                - s3:GetBucketVersioning
+              Resource: '*'
+              Effect: Allow
+            - Action:
+                - s3:PutObject
+              Resource: !Ref ArtifactBucketArn
+              Effect: Allow
+            - Action:
+                - dynamodb:*
+                - iam:*
+              Resource: '*'
+              Effect: Allow
+            - Action:
+                - codedeploy:CreateDeployment
+                - codedeploy:GetApplication
+                - codedeploy:GetApplicationRevision
+                - codedeploy:GetDeployment
+                - codedeploy:GetDeploymentConfig
+                - codedeploy:RegisterApplicationRevision
+              Resource: '*'
+              Effect: Allow
+            - Action:
+                - cloudformation:CreateStack
+                - cloudformation:DeleteStack
+                - cloudformation:DescribeStacks
+                - cloudformation:UpdateStack
+                - cloudformation:CreateChangeSet
+                - cloudformation:DeleteChangeSet
+                - cloudformation:DescribeChangeSet
+                - cloudformation:ExecuteChangeSet
+                - cloudformation:SetStackPolicy
+                - cloudformation:ValidateTemplate
+              Resource: '*'
+              Effect: Allow
+            - Action:
+                - lambda:AddPermission
+                - lambda:CreateFunction
+                - lambda:DeleteFunction
+                - lambda:GetFunctionConfiguration
+                - lambda:InvokeFunction
+                - lambda:ListFunctions
+                - lambda:RemovePermission
+                - lambda:UpdateFunctionCode
+                - lambda:UpdateFunctionConfiguration
+              Resource: '*'
+              Effect: Allow
+            - Action:
+                - codecommit:GetBranch
+                - codecommit:GetCommit
+                - codecommit:UploadArchive
+                - codecommit:GetUploadArchiveStatus
+                - codecommit:CancelUploadArchive
+              Resource: '*'
+              Effect: Allow
+            - Action:
+                - apigateway:DELETE
+                - apigateway:GET
+                - apigateway:PATCH
+                - apigateway:POST
+                - apigateway:PUT
+              Resource: '*'
+              Effect: Allow
+            - Action:
+                - codebuild:BatchGetBuilds
+                - codebuild:StartBuild
+              Resource: '*'
+              Effect: Allow
+
+
+Outputs:
+
+  CodePipelineServiceRoleArn:
+    Value: !GetAtt CodePipelineServiceRole.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-CodePipelineServiceRoleArn
+
+  CodeBuildServiceRoleArn:
+    Value: !GetAtt CodeBuildServiceRole.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-CodeBuildServiceRoleArn

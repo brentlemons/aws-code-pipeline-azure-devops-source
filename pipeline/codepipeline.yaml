@@ -6,6 +6,7 @@ Parameters:
   ArtifactBucketName:
     Type: String
     Description: Where this pipeline should store artifacts.
+    Default: 'bkl-lambda-test'
 
   CodePipelineServiceRoleArn:
     Type: String
@@ -18,35 +19,29 @@ Parameters:
   CodeCommitRepositoryName:
     Type: String
     Description: Where this pipeline should get source from.
+    Default: 'brentsTestRepoFake'
 
-  CodeCommitBranchName:
+  AzureDevOpsGitUrl:
+    Description: 'URL for git pull'
+    Type: String
+    Default: 'https://brentlemons@dev.azure.com/brentlemons/TrinityIndustriesCodePipelineExample/_git/TrinityIndustriesCodePipelineExample'
+
+  SourceBranchName:
     Type: String
     Description: Where this pipeline should get source from.
+    Default: 'master'
+
+  SourceActionVersion:
+    Description: The version of the custom source action to use.
+    Type: String
+    Default: '1'
+
+  SourceActionProvider:
+    Description: The provider name of the custom source action.
+    Type: String
+    Default: 'AzureDevOps'
 
 Resources:
-#  TestStep:
-#    Type: AWS::CodeBuild::Project
-#    Properties:
-#      Name: !Sub "${AWS::StackName}-test"
-#      Artifacts:
-#        Type: CODEPIPELINE
-#      Description: Builds the output artifacts
-#      TimeoutInMinutes: 5
-#      Environment:
-#        ComputeType: BUILD_GENERAL1_LARGE
-#        Image: "aws/codebuild/java:openjdk-8-1.6.0"
-#        Type: LINUX_CONTAINER
-#      ServiceRole: !Ref CodeBuildServiceRoleArn
-#      Source:
-#        Type: CODEPIPELINE
-#        BuildSpec: >
-#                  version: 0.2
-#
-#                  phases:
-#                    build:
-#                      commands:
-#                        - npm install
-#                        - make test
 
   BuildStep:
     Type: AWS::CodeBuild::Project
@@ -65,8 +60,49 @@ Resources:
       Source:
         Type: CODEPIPELINE
 
+  AzureDevOpsCustomSourceAction:
+    Type: 'AWS::CodePipeline::CustomActionType'
+    Properties:
+      Category: 'Source'
+      Settings:
+        EntityUrlTemplate: !Ref AzureDevOpsGitUrl
+        ExecutionUrlTemplate: 'https://docs.aws.amazon.com/codepipeline/latest/userguide/actions-create-custom-action.html'
+      ConfigurationProperties:
+        - Name: Branch
+          Required: true
+          Key: false
+          Secret: false
+          Queryable: false 
+          Description: 'Git branch to pull.'
+          Type: String
+        - Name: GitUrl
+          Required: true
+          Key: false
+          Secret: false
+          Queryable: false 
+          Description: 'SSH git clone URL.'
+          Type: String
+        # - Name: KeyBucket
+        #   Required: true
+        #   Key: false
+        #   Secret: false
+        #   Queryable: false 
+        #   Description: 'Name of the bucket to store keys in.'
+        #   Type: String
+      InputArtifactDetails:
+        MaximumCount: 0
+        MinimumCount: 0
+      OutputArtifactDetails:
+        MaximumCount: 1
+        MinimumCount: 1
+      Provider: !Ref SourceActionProvider
+      # Settings:
+      #   EntityUrlTemplate: 'test123'
+      Version: !Ref SourceActionVersion
+
   CodePipeline:
     Type: AWS::CodePipeline::Pipeline
+    DependsOn: AzureDevOpsCustomSourceAction
     Properties:
       Name: !Ref CodeCommitRepositoryName
       ArtifactStore:
@@ -75,33 +111,24 @@ Resources:
       RestartExecutionOnUpdate: true
       RoleArn: !Ref CodePipelineServiceRoleArn
       Stages:
+
         - Name: Source
           Actions:
           - Name: Source
             ActionTypeId:
               Category: Source
-              Owner: AWS
-              Provider: CodeCommit
-              Version: '1'
+              Owner: Custom
+              Provider: !Ref SourceActionProvider 
+              Version: !Ref SourceActionVersion
             Configuration:
-              RepositoryName: !Ref CodeCommitRepositoryName
-              BranchName: !Ref CodeCommitBranchName
+              Branch: !Ref SourceBranchName
+              GitUrl: !Ref AzureDevOpsGitUrl
+              # KeyBucket: !Ref KeyBucket
+              # FunctionName: brentsTestLambda
+            # Region: !Sub "${AWS::Region}"
             InputArtifacts: []
             OutputArtifacts:
             - Name: SourceArtifact
-
-#        - Name: Test
-#          Actions:
-#          - Name: Test
-#            ActionTypeId:
-#              Category: Build
-#              Owner: AWS
-#              Provider: CodeBuild
-#              Version: '1'
-#            Configuration:
-#              ProjectName: !Ref TestStep
-#            InputArtifacts:
-#              - Name: SourceArtifact
 
         - Name: Build
           Actions:
@@ -118,19 +145,19 @@ Resources:
             OutputArtifacts:
               - Name: BuildArtifact
 
-        - Name: Deploy
-          Actions:
-          - Name: Deploy
-            ActionTypeId:
-              Category: Deploy
-              Owner: AWS
-              Provider: CloudFormation
-              Version: '1'
-            InputArtifacts:
-              - Name: BuildArtifact
-            Configuration:
-                ActionMode: CREATE_UPDATE
-                RoleArn: !Ref CodePipelineServiceRoleArn
-                StackName: !Ref CodeCommitRepositoryName
-                Capabilities: CAPABILITY_IAM,CAPABILITY_AUTO_EXPAND
-                TemplatePath: BuildArtifact::outputtemplate.yaml
+        # - Name: Deploy
+        #   Actions:
+        #   - Name: Deploy
+        #     ActionTypeId:
+        #       Category: Deploy
+        #       Owner: AWS
+        #       Provider: CloudFormation
+        #       Version: '1'
+        #     InputArtifacts:
+        #       - Name: BuildArtifact
+        #     Configuration:
+        #         ActionMode: CREATE_UPDATE
+        #         RoleArn: !Ref CodePipelineServiceRoleArn
+        #         StackName: !Ref CodeCommitRepositoryName
+        #         Capabilities: CAPABILITY_IAM,CAPABILITY_AUTO_EXPAND
+        #         TemplatePath: BuildArtifact::outputtemplate.yaml

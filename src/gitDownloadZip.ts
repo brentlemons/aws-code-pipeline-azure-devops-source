@@ -18,10 +18,9 @@ const uploadStream = ({ Bucket, Key }: any) => {
 
 
 // your collection url
-let orgUrl: string = "https://dev.azure.com/brentlemons";
+let orgUrl: string = '';
 
-let token: string = 'uvyrqqyapivm7ydnfnml5rbphoy37syvf2iwei47m5yrgk4v6bwq';
-// let token = process.env.AZURE_PERSONAL_ACCESS_TOKEN; // e.g "cbdeb34vzyuk5l4gxc4qfczn3lko3avfkfqyb47etahq6axpcqha"; 
+let token: string = '';
 
 let authHandler = azdev.getPersonalAccessTokenHandler(token); 
 let connection = new azdev.WebApi(orgUrl, authHandler); 
